@@ -40,14 +40,37 @@ void ensureExtensionsInit()
     static bool initialized = false;
     if (!initialized)
     {
-        GLenum status = glewInit();
-        if (status == GLEW_OK)
+        int loaded = sfogl_LoadFunctions();
+        if (loaded == sfogl_LOAD_FAILED)
+        {
+            err() << "Failed to initialize GLLoader, ";
+            err() << "number of functions that failed to load: " << loaded - sfogl_LOAD_SUCCEEDED << std::endl;
+            return;
+        }
+
+        bool missing = false;
+
+        if (sfogl_ext_SGIS_texture_edge_clamp == sfogl_LOAD_FAILED)
+        {
+            err() << "Required extension SGIS_texture_edge_clamp unavailable" << std::endl;
+            missing = true;
+        }
+
+        if (sfogl_ext_EXT_blend_minmax == sfogl_LOAD_FAILED)
+        {
+            err() << "Required extension EXT_blend_minmax unavailable" << std::endl;
+            missing = true;
+        }
+
+        if (sfogl_ext_EXT_blend_subtract == sfogl_LOAD_FAILED)
+        {
+            err() << "Required extension EXT_blend_subtract unavailable" << std::endl;
+            missing = true;
+        }
+
+        if (!missing)
         {
             initialized = true;
-        }
-        else
-        {
-            err() << "Failed to initialize GLEW, " << glewGetErrorString(status) << std::endl;
         }
     }
 #endif
