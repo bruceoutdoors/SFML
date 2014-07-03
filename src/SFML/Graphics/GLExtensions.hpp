@@ -142,7 +142,7 @@
 
     // Core since 2.0 - ARB_fragment_program
     #define GLEXT_fragment_program                 sfogl_ext_ARB_fragment_program
-    #define GLEXT_GL_MAX_TEXTURE_COORDS            GL_MAX_TEXTURE_COORDS_ARB
+    #define GLEXT_GL_MAX_TEXTURE_IMAGE_UNITS       GL_MAX_TEXTURE_IMAGE_UNITS_ARB
 
     // Core since 2.0 - ARB_shading_language_100
     #define GLEXT_shading_language_100             sfogl_ext_ARB_shading_language_100

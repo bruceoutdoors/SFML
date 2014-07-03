@@ -64,7 +64,8 @@ m_isRepeated   (false),
 m_pixelsFlipped(false),
 m_cacheId      (getUniqueId())
 {
-
+    // Make sure that extensions are initialized
+    priv::ensureExtensionsInit();
 }
 
 
@@ -78,6 +79,9 @@ m_isRepeated   (copy.m_isRepeated),
 m_pixelsFlipped(false),
 m_cacheId      (getUniqueId())
 {
+    // Make sure that extensions are initialized
+    priv::ensureExtensionsInit();
+
     if (copy.m_texture)
         loadFromImage(copy.copyToImage());
 }
@@ -468,6 +472,9 @@ void Texture::bind(const Texture* texture, CoordinateType coordinateType)
 {
     ensureGlContext();
 
+    // Make sure that extensions are initialized
+    priv::ensureExtensionsInit();
+
     if (texture && texture->m_texture)
     {
         // Bind the texture
@@ -523,6 +530,9 @@ void Texture::bind(const Texture* texture, CoordinateType coordinateType)
 unsigned int Texture::getMaximumSize()
 {
     ensureGlContext();
+
+    // Make sure that extensions are initialized
+    priv::ensureExtensionsInit();
 
     GLint size;
     glCheck(glGetIntegerv(GL_MAX_TEXTURE_SIZE, &size));

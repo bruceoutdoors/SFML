@@ -44,7 +44,7 @@ namespace
     GLint getMaxTextureUnits()
     {
         GLint maxUnits = 0;
-        glCheck(glGetIntegerv(GLEXT_GL_MAX_TEXTURE_COORDS, &maxUnits));
+        glCheck(glGetIntegerv(GLEXT_GL_MAX_TEXTURE_IMAGE_UNITS, &maxUnits));
         return maxUnits;
     }
 
@@ -102,6 +102,12 @@ m_currentTexture(-1),
 m_textures      (),
 m_params        ()
 {
+    // Warn the user if shaders are unsupported
+    if (!isAvailable())
+    {
+        err() << "Your system doesn't support shaders "
+              << "(you should test Shader::isAvailable() before trying to use the Shader class)" << std::endl;
+    }
 }
 
 
@@ -415,6 +421,14 @@ void Shader::bind(const Shader* shader)
 {
     ensureGlContext();
 
+    // Make sure that we can use shaders
+    if (!isAvailable())
+    {
+        err() << "Failed to bind or unbind shader: your system doesn't support shaders "
+              << "(you should test Shader::isAvailable() before trying to use the Shader class)" << std::endl;
+        return;
+    }
+
     if (shader && shader->m_shaderProgram)
     {
         // Enable the program
@@ -452,11 +466,12 @@ bool Shader::isAvailable()
         // Make sure that extensions are initialized
         priv::ensureExtensionsInit();
 
-        available = sfogl_ext_ARB_multitexture         &&
-                    sfogl_ext_ARB_shading_language_100 &&
-                    sfogl_ext_ARB_shader_objects       &&
-                    sfogl_ext_ARB_vertex_shader        &&
-                    sfogl_ext_ARB_fragment_shader;
+        available = GLEXT_multitexture         &&
+                    GLEXT_fragment_program     &&
+                    GLEXT_shading_language_100 &&
+                    GLEXT_shader_objects       &&
+                    GLEXT_vertex_shader        &&
+                    GLEXT_fragment_shader;
 
         checked = true;
     }

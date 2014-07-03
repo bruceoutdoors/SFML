@@ -1,0 +1,8 @@
+// Created with:
+// lua LoadGen.lua -style=pointer_c -spec=wgl -indent=space -prefix=sf -extfile=WglExtensions.txt WglExtensions
+
+EXT_swap_control
+WGL_ARB_multisample
+WGL_ARB_pixel_format
+WGL_ARB_create_context
+WGL_ARB_create_context_profile

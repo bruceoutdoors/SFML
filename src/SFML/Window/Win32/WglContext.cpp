@@ -27,7 +27,7 @@
 ////////////////////////////////////////////////////////////
 #include <SFML/Window/WindowImpl.hpp> // included first to avoid a warning about macro redefinition
 #include <SFML/Window/Win32/WglContext.hpp>
-#include <SFML/Window/glext/wglext.h>
+#include <SFML/Window/Win32/WglExtensions.hpp>
 #include <SFML/System/Lock.hpp>
 #include <SFML/System/Mutex.hpp>
 #include <SFML/System/Err.hpp>
@@ -37,6 +37,25 @@ namespace sf
 {
 namespace priv
 {
+////////////////////////////////////////////////////////////
+void ensureExtensionsInit(HDC deviceContext)
+{
+    static bool initialized = false;
+    if (!initialized)
+    {
+        int loaded = sfwgl_LoadFunctions(deviceContext);
+        if (loaded == sfwgl_LOAD_FAILED)
+        {
+            err() << "Failed to initialize WglExtensions" << std::endl;
+        }
+        else
+        {
+            initialized = true;
+        }
+    }
+}
+
+
 ////////////////////////////////////////////////////////////
 WglContext::WglContext(WglContext* shared) :
 m_window       (NULL),
@@ -138,15 +157,27 @@ void WglContext::display()
 ////////////////////////////////////////////////////////////
 void WglContext::setVerticalSyncEnabled(bool enabled)
 {
-    PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT = reinterpret_cast<PFNWGLSWAPINTERVALEXTPROC>(wglGetProcAddress("wglSwapIntervalEXT"));
-    if (wglSwapIntervalEXT)
+    // Make sure that extensions are initialized
+    ensureExtensionsInit(m_deviceContext);
+
+    if (sfwgl_ext_EXT_swap_control == sfwgl_LOAD_SUCCEEDED)
         wglSwapIntervalEXT(enabled ? 1 : 0);
+    else
+    {
+        // wglSwapIntervalEXT not supported
+        err() << "Setting vertical sync not supported" << std::endl;
+    }
 }
 
 
 ////////////////////////////////////////////////////////////
 void WglContext::createContext(WglContext* shared, unsigned int bitsPerPixel, const ContextSettings& settings)
 {
+    // Make sure that extensions are initialized
+    // if they would be required for context creation
+    if (m_settings.antialiasingLevel || (m_settings.majorVersion >= 3))
+        ensureExtensionsInit(m_deviceContext);
+
     // Save the creation settings
     m_settings = settings;
 
@@ -154,9 +185,7 @@ void WglContext::createContext(WglContext* shared, unsigned int bitsPerPixel, co
     int bestFormat = 0;
     if (m_settings.antialiasingLevel > 0)
     {
-        // Get the wglChoosePixelFormatARB function (it is an extension)
-        PFNWGLCHOOSEPIXELFORMATARBPROC wglChoosePixelFormatARB = reinterpret_cast<PFNWGLCHOOSEPIXELFORMATARBPROC>(wglGetProcAddress("wglChoosePixelFormatARB"));
-        if (wglChoosePixelFormatARB)
+        if ((sfwgl_ext_ARB_pixel_format == sfwgl_LOAD_SUCCEEDED) && (sfwgl_ext_ARB_multisample == sfwgl_LOAD_SUCCEEDED))
         {
             // Define the basic attributes we want for our window
             int intAttributes[] =
@@ -262,8 +291,7 @@ void WglContext::createContext(WglContext* shared, unsigned int bitsPerPixel, co
     // Create the OpenGL context -- first try context versions >= 3.0 if it is requested (they require special code)
     while (!m_context && (m_settings.majorVersion >= 3))
     {
-        PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = reinterpret_cast<PFNWGLCREATECONTEXTATTRIBSARBPROC>(wglGetProcAddress("wglCreateContextAttribsARB"));
-        if (wglCreateContextAttribsARB)
+        if (sfwgl_ext_ARB_create_context == sfwgl_LOAD_SUCCEEDED)
         {
             int attributes[] =
             {

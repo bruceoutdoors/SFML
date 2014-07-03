@@ -33,10 +33,9 @@
 #include <set>
 #include <cstdlib>
 #include <cassert>
-#ifdef SFML_SYSTEM_IOS
-    #include <OpenGLES/ES1/gl.h>
-#else
-    #include <SFML/Window/glext/glext.h>
+
+#if !defined(GL_MULTISAMPLE)
+    #define GL_MULTISAMPLE 0x809D
 #endif
 
 #if !defined(SFML_OPENGL_ES)
