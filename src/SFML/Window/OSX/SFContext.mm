@@ -205,8 +205,19 @@ void SFContext::createContext(SFContext* shared,
     }
     else
     {
+        if (settings.compatibilityFlag)
+        {
+            sf::err() << "Warning. Compatibility profile not supported on this platform." << std::endl;
+            settings.compatibilityFlag = false;
+        }
         attrs.push_back(NSOpenGLPFAOpenGLProfile);
         attrs.push_back(NSOpenGLProfileVersion3_2Core);
+    }
+
+    if (settings.debugFlag)
+    {
+        sf::err() << "Warning. OpenGL debugging not supported on this platform." << std::endl;
+        settings.debugFlag = false;
     }
 
     attrs.push_back((NSOpenGLPixelFormatAttribute)0); // end of array

@@ -11,6 +11,7 @@ set(SRC
     ${SRCROOT}/GlContext.hpp
     ${SRCROOT}/GlResource.cpp
     ${INCROOT}/GlResource.hpp
+    ${SRCROOT}/ContextSettings.cpp
     ${INCROOT}/ContextSettings.hpp
     ${INCROOT}/Event.hpp
     ${SRCROOT}/InputImpl.hpp
@@ -86,6 +87,8 @@ elseif(SFML_OS_LINUX OR SFML_OS_FREEBSD)
             ${PLATFORM_SRC}
             ${SRCROOT}/Unix/GlxContext.cpp
             ${SRCROOT}/Unix/GlxContext.hpp
+            ${SRCROOT}/Unix/GlxExtensions.cpp
+            ${SRCROOT}/Unix/GlxExtensions.hpp
         )
     endif()
     if(SFML_OS_LINUX)

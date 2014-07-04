@@ -173,13 +173,13 @@ void WglContext::setVerticalSyncEnabled(bool enabled)
 ////////////////////////////////////////////////////////////
 void WglContext::createContext(WglContext* shared, unsigned int bitsPerPixel, const ContextSettings& settings)
 {
+    // Save the creation settings
+    m_settings = settings;
+
     // Make sure that extensions are initialized
     // if they would be required for context creation
     if (m_settings.antialiasingLevel || (m_settings.majorVersion >= 3))
         ensureExtensionsInit(m_deviceContext);
-
-    // Save the creation settings
-    m_settings = settings;
 
     // Let's find a suitable pixel format -- first try with antialiasing
     int bestFormat = 0;
@@ -194,7 +194,7 @@ void WglContext::createContext(WglContext* shared, unsigned int bitsPerPixel, co
                 WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
                 WGL_ACCELERATION_ARB,   WGL_FULL_ACCELERATION_ARB,
                 WGL_DOUBLE_BUFFER_ARB,  GL_TRUE,
-                WGL_SAMPLE_BUFFERS_ARB, (m_settings.antialiasingLevel ? GL_TRUE : GL_FALSE),
+                WGL_SAMPLE_BUFFERS_ARB, (m_settings.antialiasingLevel ? 1 : 0),
                 WGL_SAMPLES_ARB,        static_cast<int>(m_settings.antialiasingLevel),
                 0,                      0
             };
@@ -293,14 +293,39 @@ void WglContext::createContext(WglContext* shared, unsigned int bitsPerPixel, co
     {
         if (sfwgl_ext_ARB_create_context == sfwgl_LOAD_SUCCEEDED)
         {
-            int attributes[] =
+            // Check if setting the profile is supported
+            if (sfwgl_ext_ARB_create_context_profile == sfwgl_LOAD_SUCCEEDED)
             {
-                WGL_CONTEXT_MAJOR_VERSION_ARB, static_cast<int>(m_settings.majorVersion),
-                WGL_CONTEXT_MINOR_VERSION_ARB, static_cast<int>(m_settings.minorVersion),
-                WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
-                0, 0
-            };
-            m_context = wglCreateContextAttribsARB(m_deviceContext, sharedContext, attributes);
+                int profile = m_settings.compatibilityFlag ? WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB : WGL_CONTEXT_CORE_PROFILE_BIT_ARB;
+                int debug = m_settings.debugFlag ? WGL_CONTEXT_DEBUG_BIT_ARB : 0;
+
+                int attributes[] =
+                {
+                    WGL_CONTEXT_MAJOR_VERSION_ARB, static_cast<int>(m_settings.majorVersion),
+                    WGL_CONTEXT_MINOR_VERSION_ARB, static_cast<int>(m_settings.minorVersion),
+                    WGL_CONTEXT_PROFILE_MASK_ARB,  profile,
+                    WGL_CONTEXT_FLAGS_ARB,         debug,
+                    0,                             0
+                };
+                m_context = wglCreateContextAttribsARB(m_deviceContext, sharedContext, attributes);
+            }
+            else
+            {
+                if (m_settings.compatibilityFlag || m_settings.debugFlag)
+                    err() << "Selecting a profile during context creation is not supported,"
+                          << "disabling comptibility and debug" << std::endl;
+
+                m_settings.compatibilityFlag = false;
+                m_settings.debugFlag = false;
+
+                int attributes[] =
+                {
+                    WGL_CONTEXT_MAJOR_VERSION_ARB, static_cast<int>(m_settings.majorVersion),
+                    WGL_CONTEXT_MINOR_VERSION_ARB, static_cast<int>(m_settings.minorVersion),
+                    0,                             0
+                };
+                m_context = wglCreateContextAttribsARB(m_deviceContext, sharedContext, attributes);
+            }
         }
 
         // If we couldn't create the context, lower the version number and try again -- stop at 3.0
@@ -324,9 +349,11 @@ void WglContext::createContext(WglContext* shared, unsigned int bitsPerPixel, co
     // If the OpenGL >= 3.0 context failed or if we don't want one, create a regular OpenGL 1.x/2.x context
     if (!m_context)
     {
-        // set the context version to 2.0 (arbitrary)
+        // set the context version to 2.0 (arbitrary) and disable flags
         m_settings.majorVersion = 2;
         m_settings.minorVersion = 0;
+        m_settings.compatibilityFlag = false;
+        m_settings.debugFlag = false;
 
         m_context = wglCreateContext(m_deviceContext);
         if (!m_context)
