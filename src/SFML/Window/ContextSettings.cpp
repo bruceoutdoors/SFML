@@ -41,18 +41,7 @@ minorVersion     (minor),
 compatibilityFlag(compatibility),
 debugFlag        (debug)
 {
-    // Perform sanity checks
-    if ((majorVersion == 3) && ((minorVersion == 0) || (minorVersion == 1)))
-    {
-        if (compatibilityFlag)
-        {
-            err() << "Compatibility profile does not exist for version "
-                  << majorVersion << "." << minorVersion
-                  << ", attempting to create a core profile context instead" << std::endl;
 
-            compatibilityFlag = false;
-        }
-    }
 }
 
 } // namespace sf

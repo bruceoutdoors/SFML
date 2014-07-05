@@ -102,12 +102,8 @@ m_currentTexture(-1),
 m_textures      (),
 m_params        ()
 {
-    // Warn the user if shaders are unsupported
-    if (!isAvailable())
-    {
-        err() << "Your system doesn't support shaders "
-              << "(you should test Shader::isAvailable() before trying to use the Shader class)" << std::endl;
-    }
+    // Make sure that extensions are initialized
+    priv::ensureExtensionsInit();
 }
 
 

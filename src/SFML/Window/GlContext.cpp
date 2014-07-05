@@ -285,9 +285,9 @@ void GlContext::initialize()
     }
     else
     {
-        // Can't get the version number, assume 2.0
+        // Can't get the version number, assume 2.1
         m_settings.majorVersion = 2;
-        m_settings.minorVersion = 0;
+        m_settings.minorVersion = 1;
     }
 
     // Enable antialiasing if needed

@@ -50,7 +50,7 @@ struct SFML_WINDOW_API ContextSettings
     /// \param minor        Minor number of the context version
     ///
     ////////////////////////////////////////////////////////////
-    explicit ContextSettings(unsigned int depth = 0, unsigned int stencil = 0, unsigned int antialiasing = 0, unsigned int major = 2, unsigned int minor = 0, bool compatibility = true, bool debug = false);
+    explicit ContextSettings(unsigned int depth = 0, unsigned int stencil = 0, unsigned int antialiasing = 0, unsigned int major = 2, unsigned int minor = 1, bool compatibility = true, bool debug = false);
 
     ////////////////////////////////////////////////////////////
     // Member data
