@@ -243,130 +243,137 @@ void GlxContext::createContext(GlxContext* shared, unsigned int bitsPerPixel, co
     GLXContext toShare = shared ? shared->m_context : NULL;
 
     // Make sure that extensions are initialized
-    // if they would be required for context creation
-    if (m_settings.majorVersion >= 3)
-        ensureExtensionsInit(m_display, DefaultScreen(m_display));
+    ensureExtensionsInit(m_display, DefaultScreen(m_display));
 
-    // Create the OpenGL context -- first try context versions >= 3.0 if it is requested (they require special code)
-    if (m_settings.majorVersion >= 3)
+    // Create the OpenGL context -- first try using glXCreateContextAttribsARB
+    if (sfglx_ext_ARB_create_context == sfglx_LOAD_SUCCEEDED)
     {
-        if (sfglx_ext_ARB_create_context == sfglx_LOAD_SUCCEEDED)
+        // Select a GLXFB config that matches the requested context settings
+        int nbConfigs = 0;
+        GLXFBConfig* configs = NULL;
+
+        // Check if multisampling is supported
+        if (sfglx_ext_ARB_multisample == sfglx_LOAD_SUCCEEDED)
         {
-            // Select a GLXFB config that matches the requested context settings
-            int nbConfigs = 0;
-            GLXFBConfig* configs = NULL;
+            int fbAttributes[] =
+            {
+                GLX_DEPTH_SIZE,         settings.depthBits,
+                GLX_STENCIL_SIZE,       settings.stencilBits,
+                GLX_SAMPLE_BUFFERS_ARB, settings.antialiasingLevel ? 1 : 0,
+                GLX_SAMPLES_ARB,        settings.antialiasingLevel,
+                GLX_RED_SIZE,           8,
+                GLX_GREEN_SIZE,         8,
+                GLX_BLUE_SIZE,          8,
+                GLX_ALPHA_SIZE,         bitsPerPixel == 32 ? 8 : 0,
+                GLX_DOUBLEBUFFER,       True,
+                GLX_X_RENDERABLE,       True,
+                GLX_DRAWABLE_TYPE,      GLX_WINDOW_BIT,
+                GLX_RENDER_TYPE,        GLX_RGBA_BIT,
+                GLX_CONFIG_CAVEAT,      GLX_NONE,
+                None
+            };
+            configs = glXChooseFBConfig(m_display, DefaultScreen(m_display), fbAttributes, &nbConfigs);
+        }
+        else
+        {
+            m_settings.antialiasingLevel = 0;
 
-            // Check if multisampling is supported
-            if (sfglx_ext_ARB_multisample == sfglx_LOAD_SUCCEEDED)
+            int fbAttributes[] =
             {
-                int fbAttributes[] =
+                GLX_DEPTH_SIZE,     settings.depthBits,
+                GLX_STENCIL_SIZE,   settings.stencilBits,
+                GLX_RED_SIZE,       8,
+                GLX_GREEN_SIZE,     8,
+                GLX_BLUE_SIZE,      8,
+                GLX_ALPHA_SIZE,     bitsPerPixel == 32 ? 8 : 0,
+                GLX_DOUBLEBUFFER,   True,
+                GLX_X_RENDERABLE,   True,
+                GLX_DRAWABLE_TYPE,  GLX_WINDOW_BIT,
+                GLX_RENDER_TYPE,    GLX_RGBA_BIT,
+                GLX_CONFIG_CAVEAT,  GLX_NONE,
+                None
+            };
+            configs = glXChooseFBConfig(m_display, DefaultScreen(m_display), fbAttributes, &nbConfigs);
+        }
+        if (configs && nbConfigs)
+        {
+            while (!m_context && m_settings.majorVersion)
+            {
+                // Check if setting the profile is supported
+                if (sfglx_ext_ARB_create_context_profile == sfglx_LOAD_SUCCEEDED)
                 {
-                    GLX_DEPTH_SIZE,         settings.depthBits,
-                    GLX_STENCIL_SIZE,       settings.stencilBits,
-                    GLX_SAMPLE_BUFFERS_ARB, settings.antialiasingLevel ? 1 : 0,
-                    GLX_SAMPLES_ARB,        settings.antialiasingLevel,
-                    GLX_RED_SIZE,           8,
-                    GLX_GREEN_SIZE,         8,
-                    GLX_BLUE_SIZE,          8,
-                    GLX_ALPHA_SIZE,         bitsPerPixel == 32 ? 8 : 0,
-                    GLX_DOUBLEBUFFER,       True,
-                    GLX_X_RENDERABLE,       True,
-                    GLX_DRAWABLE_TYPE,      GLX_WINDOW_BIT,
-                    GLX_RENDER_TYPE,        GLX_RGBA_BIT,
-                    GLX_CONFIG_CAVEAT,      GLX_NONE,
-                    None
-                };
-                configs = glXChooseFBConfig(m_display, DefaultScreen(m_display), fbAttributes, &nbConfigs);
-            }
-            else
-            {
-                m_settings.antialiasingLevel = 0;
+                    int profile = m_settings.compatibilityFlag ? GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB : GLX_CONTEXT_CORE_PROFILE_BIT_ARB;
+                    int debug = m_settings.debugFlag ? GLX_CONTEXT_DEBUG_BIT_ARB : 0;
 
-                int fbAttributes[] =
-                {
-                    GLX_DEPTH_SIZE,     settings.depthBits,
-                    GLX_STENCIL_SIZE,   settings.stencilBits,
-                    GLX_RED_SIZE,       8,
-                    GLX_GREEN_SIZE,     8,
-                    GLX_BLUE_SIZE,      8,
-                    GLX_ALPHA_SIZE,     bitsPerPixel == 32 ? 8 : 0,
-                    GLX_DOUBLEBUFFER,   True,
-                    GLX_X_RENDERABLE,   True,
-                    GLX_DRAWABLE_TYPE,  GLX_WINDOW_BIT,
-                    GLX_RENDER_TYPE,    GLX_RGBA_BIT,
-                    GLX_CONFIG_CAVEAT,  GLX_NONE,
-                    None
-                };
-                configs = glXChooseFBConfig(m_display, DefaultScreen(m_display), fbAttributes, &nbConfigs);
-            }
-            if (configs && nbConfigs)
-            {
-                while (!m_context && (m_settings.majorVersion >= 3))
-                {
-                    // Check if setting the profile is supported
-                    if (sfglx_ext_ARB_create_context_profile == sfglx_LOAD_SUCCEEDED)
+                    // Create the context
+                    int attributes[] =
                     {
-                        int profile = m_settings.compatibilityFlag ? GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB : GLX_CONTEXT_CORE_PROFILE_BIT_ARB;
-                        int debug = m_settings.debugFlag ? GLX_CONTEXT_DEBUG_BIT_ARB : 0;
+                        GLX_CONTEXT_MAJOR_VERSION_ARB, static_cast<int>(m_settings.majorVersion),
+                        GLX_CONTEXT_MINOR_VERSION_ARB, static_cast<int>(m_settings.minorVersion),
+                        GLX_CONTEXT_PROFILE_MASK_ARB,  profile,
+                        GLX_CONTEXT_FLAGS_ARB,         debug,
+                        0,                             0
+                    };
+                    m_context = glXCreateContextAttribsARB(m_display, configs[0], toShare, true, attributes);
+                }
+                else
+                {
+                    if (m_settings.compatibilityFlag || m_settings.debugFlag)
+                        err() << "Selecting a profile during context creation is not supported,"
+                              << "disabling comptibility and debug" << std::endl;
 
-                        // Create the context
-                        int attributes[] =
-                        {
-                            GLX_CONTEXT_MAJOR_VERSION_ARB, static_cast<int>(m_settings.majorVersion),
-                            GLX_CONTEXT_MINOR_VERSION_ARB, static_cast<int>(m_settings.minorVersion),
-                            GLX_CONTEXT_PROFILE_MASK_ARB,  profile,
-                            GLX_CONTEXT_FLAGS_ARB,         debug,
-                            0,                             0
-                        };
-                        m_context = glXCreateContextAttribsARB(m_display, configs[0], toShare, true, attributes);
-                    }
-                    else
+                    m_settings.compatibilityFlag = false;
+                    m_settings.debugFlag = false;
+
+                    // Create the context
+                    int attributes[] =
                     {
-                        if (m_settings.compatibilityFlag || m_settings.debugFlag)
-                            err() << "Selecting a profile during context creation is not supported,"
-                                  << "disabling comptibility and debug" << std::endl;
+                        GLX_CONTEXT_MAJOR_VERSION_ARB, static_cast<int>(m_settings.majorVersion),
+                        GLX_CONTEXT_MINOR_VERSION_ARB, static_cast<int>(m_settings.minorVersion),
+                        0,                             0
+                    };
+                    m_context = glXCreateContextAttribsARB(m_display, configs[0], toShare, true, attributes);
+                }
 
-                        m_settings.compatibilityFlag = false;
+                if (m_context)
+                {
+                    // Ok: retrieve the config's visual
+                    visualInfo = glXGetVisualFromFBConfig(m_display, configs[0]);
+                }
+                else
+                {
+                    // If we couldn't create the context, first try disabling flags,
+                    // then lower the version number and try again -- stop at 0.0
+                    // Invalid version numbers will be generated by this algorithm (like 3.9), but we really don't care
+                    if (!m_settings.compatibilityFlag || m_settings.debugFlag)
+                    {
+                        m_settings.compatibilityFlag = true;
                         m_settings.debugFlag = false;
-
-                        // Create the context
-                        int attributes[] =
-                        {
-                            GLX_CONTEXT_MAJOR_VERSION_ARB, static_cast<int>(m_settings.majorVersion),
-                            GLX_CONTEXT_MINOR_VERSION_ARB, static_cast<int>(m_settings.minorVersion),
-                            0,                             0
-                        };
-                        m_context = glXCreateContextAttribsARB(m_display, configs[0], toShare, true, attributes);
                     }
-
-                    if (m_context)
+                    else if (m_settings.minorVersion > 0)
                     {
-                        // Ok: retrieve the config's visual
-                        visualInfo = glXGetVisualFromFBConfig(m_display, configs[0]);
+                        // If the minor version is not 0, we decrease it and try again
+                        m_settings.minorVersion--;
+
+                        m_settings.compatibilityFlag = settings.compatibilityFlag;
+                        m_settings.debugFlag         = settings.debugFlag;
                     }
                     else
                     {
-                        // If we couldn't create the context, lower the version number and try again -- stop at 3.0
-                        // Invalid version numbers will be generated by this algorithm (like 3.9), but we really don't care
-                        if (m_settings.minorVersion > 0)
-                        {
-                            // If the minor version is not 0, we decrease it and try again
-                            m_settings.minorVersion--;
-                        }
-                        else
-                        {
-                            // If the minor version is 0, we decrease the major version
-                            m_settings.majorVersion--;
-                            m_settings.minorVersion = 9;
-                        }
+                        // If the minor version is 0, we decrease the major version
+                        m_settings.majorVersion--;
+                        m_settings.minorVersion = 9;
+
+                        m_settings.compatibilityFlag = settings.compatibilityFlag;
+                        m_settings.debugFlag         = settings.debugFlag;
                     }
                 }
-                XFree(configs);
             }
+            XFree(configs);
         }
     }
 
-    // If the OpenGL >= 3.0 context failed or if we don't want one, create a regular OpenGL 1.x/2.x context
+    // If glXCreateContextAttribsARB failed, use glXCreateContext
     if (!m_context)
     {
         // set the context version to 2.1 (arbitrary) and disable flags
