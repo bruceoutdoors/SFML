@@ -242,8 +242,10 @@ void GlxContext::createContext(GlxContext* shared, unsigned int bitsPerPixel, co
     // Get the context to share display lists with
     GLXContext toShare = shared ? shared->m_context : NULL;
 
-    // Make sure that extensions are initialized
-    ensureExtensionsInit(m_display, DefaultScreen(m_display));
+    // Make sure that extensions are initialized if this is not the shared context
+    // The shared context is the context used to initialize the extensions
+    if (shared)
+        ensureExtensionsInit(m_display, DefaultScreen(m_display));
 
     // Create the OpenGL context -- first try using glXCreateContextAttribsARB
     if (sfglx_ext_ARB_create_context == sfglx_LOAD_SUCCEEDED)

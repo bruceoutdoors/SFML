@@ -190,8 +190,10 @@ void WglContext::createContext(WglContext* shared, unsigned int bitsPerPixel, co
     // Save the creation settings
     m_settings = settings;
 
-    // Make sure that extensions are initialized
-    ensureExtensionsInit(m_deviceContext);
+    // Make sure that extensions are initialized if this is not the shared context
+    // The shared context is the context used to initialize the extensions
+    if (shared)
+        ensureExtensionsInit(m_deviceContext);
 
     // Let's find a suitable pixel format -- first try with antialiasing
     int bestFormat = 0;
