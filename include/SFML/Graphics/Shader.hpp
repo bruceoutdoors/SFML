@@ -532,13 +532,24 @@ private :
     typedef std::map<int, const Texture*> TextureTable;
     typedef std::map<std::string, int> ParamTable;
 
+// Our own typedef for the differing program handle type on Apple systems
+#if defined(SFML_SYSTEM_MACOS) || defined(SFML_SYSTEM_IOS)
+
+    typedef void* ProgramHandle;
+
+#else
+
+    typedef unsigned int ProgramHandle;
+
+#endif
+
     ////////////////////////////////////////////////////////////
     // Member data
     ////////////////////////////////////////////////////////////
-    unsigned int m_shaderProgram;  ///< OpenGL identifier for the program
-    int          m_currentTexture; ///< Location of the current texture in the shader
-    TextureTable m_textures;       ///< Texture variables in the shader, mapped to their location
-    ParamTable   m_params;         ///< Parameters location cache
+    ProgramHandle m_shaderProgram;  ///< OpenGL identifier for the program
+    int           m_currentTexture; ///< Location of the current texture in the shader
+    TextureTable  m_textures;       ///< Texture variables in the shader, mapped to their location
+    ParamTable    m_params;         ///< Parameters location cache
 };
 
 } // namespace sf

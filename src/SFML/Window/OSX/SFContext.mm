@@ -281,6 +281,7 @@ void SFContext::createContext(SFContext* shared,
               << " ; compatibility = " << m_settings.compatibilityFlag
               << " ; debug = " << m_settings.debugFlag
               << std::noboolalpha << std::endl;
+    }
 }
 
 } // namespace priv
