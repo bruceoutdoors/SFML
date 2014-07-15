@@ -142,7 +142,7 @@ extern int sfwgl_ext_ARB_create_context_profile;
 
 #ifndef WGL_EXT_swap_control
 #define WGL_EXT_swap_control 1
-extern int (CODEGEN_FUNCPTR *sf_ptrc_wglGetSwapIntervalEXT)();
+extern int (CODEGEN_FUNCPTR *sf_ptrc_wglGetSwapIntervalEXT)(void);
 #define wglGetSwapIntervalEXT sf_ptrc_wglGetSwapIntervalEXT
 extern BOOL (CODEGEN_FUNCPTR *sf_ptrc_wglSwapIntervalEXT)(int);
 #define wglSwapIntervalEXT sf_ptrc_wglSwapIntervalEXT
@@ -179,4 +179,4 @@ int sfwgl_LoadFunctions(HDC hdc);
 }
 #endif /*__cplusplus*/
 
-#endif //SF_POINTER_C_GENERATED_HEADER_WINDOWSGL_HPP
+#endif /* SF_POINTER_C_GENERATED_HEADER_WINDOWSGL_HPP */

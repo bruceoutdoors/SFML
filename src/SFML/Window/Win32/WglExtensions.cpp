@@ -6,28 +6,19 @@
 #ifdef _MSC_VER
 #pragma warning(disable: 4055)
 #pragma warning(disable: 4054)
+#pragma warning(disable: 4996)
 #endif
-
-static int TestPointer(const PROC pTest)
-{
-    ptrdiff_t iTest;
-    if(!pTest) return 0;
-    iTest = (ptrdiff_t)pTest;
-
-    if(iTest == 1 || iTest == 2 || iTest == 3 || iTest == -1) return 0;
-
-    return 1;
-}
 
 static PROC WinGetProcAddress(const char *name)
 {
-    HMODULE glMod = NULL;
+    static HMODULE glMod = NULL;
     PROC pFunc = wglGetProcAddress((LPCSTR)name);
-    if(TestPointer(pFunc))
-    {
-        return pFunc;
-    }
-    glMod = GetModuleHandleA("OpenGL32.dll");
+
+    if (pFunc) return pFunc;
+
+    if (NULL == glMod)
+        glMod = GetModuleHandleA("OpenGL32.dll");
+
     return (PROC)GetProcAddress(glMod, (LPCSTR)name);
 }
 
@@ -39,13 +30,13 @@ int sfwgl_ext_ARB_pixel_format = sfwgl_LOAD_FAILED;
 int sfwgl_ext_ARB_create_context = sfwgl_LOAD_FAILED;
 int sfwgl_ext_ARB_create_context_profile = sfwgl_LOAD_FAILED;
 
-int (CODEGEN_FUNCPTR *sf_ptrc_wglGetSwapIntervalEXT)() = NULL;
+int (CODEGEN_FUNCPTR *sf_ptrc_wglGetSwapIntervalEXT)(void) = NULL;
 BOOL (CODEGEN_FUNCPTR *sf_ptrc_wglSwapIntervalEXT)(int) = NULL;
 
-static int Load_EXT_swap_control()
+static int Load_EXT_swap_control(void)
 {
     int numFailed = 0;
-    sf_ptrc_wglGetSwapIntervalEXT = (int (CODEGEN_FUNCPTR *)())IntGetProcAddress("wglGetSwapIntervalEXT");
+    sf_ptrc_wglGetSwapIntervalEXT = (int (CODEGEN_FUNCPTR *)(void))IntGetProcAddress("wglGetSwapIntervalEXT");
     if(!sf_ptrc_wglGetSwapIntervalEXT) numFailed++;
     sf_ptrc_wglSwapIntervalEXT = (BOOL (CODEGEN_FUNCPTR *)(int))IntGetProcAddress("wglSwapIntervalEXT");
     if(!sf_ptrc_wglSwapIntervalEXT) numFailed++;
@@ -56,7 +47,7 @@ BOOL (CODEGEN_FUNCPTR *sf_ptrc_wglChoosePixelFormatARB)(HDC, const int *, const 
 BOOL (CODEGEN_FUNCPTR *sf_ptrc_wglGetPixelFormatAttribfvARB)(HDC, int, int, UINT, const int *, FLOAT *) = NULL;
 BOOL (CODEGEN_FUNCPTR *sf_ptrc_wglGetPixelFormatAttribivARB)(HDC, int, int, UINT, const int *, int *) = NULL;
 
-static int Load_ARB_pixel_format()
+static int Load_ARB_pixel_format(void)
 {
     int numFailed = 0;
     sf_ptrc_wglChoosePixelFormatARB = (BOOL (CODEGEN_FUNCPTR *)(HDC, const int *, const FLOAT *, UINT, int *, UINT *))IntGetProcAddress("wglChoosePixelFormatARB");
@@ -70,7 +61,7 @@ static int Load_ARB_pixel_format()
 
 HGLRC (CODEGEN_FUNCPTR *sf_ptrc_wglCreateContextAttribsARB)(HDC, HGLRC, const int *) = NULL;
 
-static int Load_ARB_create_context()
+static int Load_ARB_create_context(void)
 {
     int numFailed = 0;
     sf_ptrc_wglCreateContextAttribsARB = (HGLRC (CODEGEN_FUNCPTR *)(HDC, HGLRC, const int *))IntGetProcAddress("wglCreateContextAttribsARB");
@@ -81,7 +72,7 @@ static int Load_ARB_create_context()
 
 static const char * (CODEGEN_FUNCPTR *sf_ptrc_wglGetExtensionsStringARB)(HDC) = NULL;
 
-typedef int (*PFN_LOADFUNCPOINTERS)();
+typedef int (*PFN_LOADFUNCPOINTERS)(void);
 typedef struct sfwgl_StrToExtMap_s
 {
     const char *extensionName;
@@ -112,7 +103,7 @@ static sfwgl_StrToExtMap *FindExtEntry(const char *extensionName)
     return NULL;
 }
 
-static void ClearExtensionVars()
+static void ClearExtensionVars(void)
 {
     sfwgl_ext_EXT_swap_control = sfwgl_LOAD_FAILED;
     sfwgl_ext_ARB_multisample = sfwgl_LOAD_FAILED;

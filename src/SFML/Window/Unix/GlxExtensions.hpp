@@ -94,23 +94,23 @@ typedef unsigned __int64 uint64_t;
     typedef struct __GLXFBConfigRec *GLXFBConfigSGIX;
     typedef XID GLXPbufferSGIX;
     typedef struct {
-    char    pipeName[80]; /* Should be [GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX] */
-    int     networkId;
+        char    pipeName[80]; /* Should be [GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX] */
+        int     networkId;
 } GLXHyperpipeNetworkSGIX;
     typedef struct {
-    char    pipeName[80]; /* Should be [GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX] */
-    int     channel;
-    unsigned int participationType;
-    int     timeSlice;
+        char    pipeName[80]; /* Should be [GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX] */
+        int     channel;
+        unsigned int participationType;
+        int     timeSlice;
 } GLXHyperpipeConfigSGIX;
     typedef struct {
-    char pipeName[80]; /* Should be [GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX] */
-    int srcXOrigin, srcYOrigin, srcWidth, srcHeight;
-    int destXOrigin, destYOrigin, destWidth, destHeight;
+        char pipeName[80]; /* Should be [GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX] */
+        int srcXOrigin, srcYOrigin, srcWidth, srcHeight;
+        int destXOrigin, destYOrigin, destWidth, destHeight;
 } GLXPipeRect;
     typedef struct {
-    char pipeName[80]; /* Should be [GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX] */
-    int XOrigin, YOrigin, maxHeight, maxWidth;
+        char pipeName[80]; /* Should be [GLX_HYPERPIPE_PIPE_NAME_LENGTH_SGIX] */
+        int XOrigin, YOrigin, maxHeight, maxWidth;
 } GLXPipeRectLimits;
 
 #ifdef __cplusplus
@@ -142,14 +142,14 @@ extern int sfglx_ext_ARB_create_context_profile;
 #define GLX_EXT_swap_control 1
 extern void (CODEGEN_FUNCPTR *sf_ptrc_glXSwapIntervalEXT)(Display *, GLXDrawable, int);
 #define glXSwapIntervalEXT sf_ptrc_glXSwapIntervalEXT
-#endif /*GLX_EXT_swap_control*/ 
+#endif /*GLX_EXT_swap_control*/
 
 
 #ifndef GLX_ARB_create_context
 #define GLX_ARB_create_context 1
 extern GLXContext (CODEGEN_FUNCPTR *sf_ptrc_glXCreateContextAttribsARB)(Display *, GLXFBConfig, GLXContext, Bool, const int *);
 #define glXCreateContextAttribsARB sf_ptrc_glXCreateContextAttribsARB
-#endif /*GLX_ARB_create_context*/ 
+#endif /*GLX_ARB_create_context*/
 
 
 enum sfglx_LoadStatus
@@ -165,4 +165,4 @@ int sfglx_LoadFunctions(Display *display, int screen);
 }
 #endif /*__cplusplus*/
 
-#endif //SF_POINTER_C_GENERATED_HEADER_GLXWIN_HPP
+#endif /* SF_POINTER_C_GENERATED_HEADER_GLXWIN_HPP */

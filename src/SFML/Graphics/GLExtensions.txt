@@ -1,4 +1,6 @@
 // Created with:
+// https://bitbucket.org/Anteru/glloadgen-reloaded
+// Commit 20f19482b7a844d20b9785c3e3fd1f16419f6e0a
 // lua LoadGen.lua -style=pointer_c -spec=gl -version=1.1 -indent=space -prefix=sf -extfile=GLExtensions.txt GLLoader
 
 SGIS_texture_edge_clamp

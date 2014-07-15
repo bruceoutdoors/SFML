@@ -4,95 +4,49 @@
 #include <SFML/Graphics/GLLoader.hpp>
 
 #if defined(__APPLE__)
-#include <mach-o/dyld.h>
-
-static void* AppleGLGetProcAddress (const GLubyte *name)
-{
-    static const struct mach_header* image = NULL;
-    NSSymbol symbol;
-    char* symbolName;
-    if (NULL == image)
-    {
-        image = NSAddImage("/System/Library/Frameworks/OpenGL.framework/Versions/Current/OpenGL", NSADDIMAGE_OPTION_RETURN_ON_ERROR);
-    }
-    /* prepend a '_' for the Unix C symbol mangling convention */
-    symbolName = malloc(strlen((const char*)name) + 2);
-    strcpy(symbolName+1, (const char*)name);
-    symbolName[0] = '_';
-    symbol = NULL;
-    /* if (NSIsSymbolNameDefined(symbolName))
-    symbol = NSLookupAndBindSymbol(symbolName); */
-    symbol = image ? NSLookupSymbolInImage(image, symbolName, NSLOOKUPSYMBOLINIMAGE_OPTION_BIND | NSLOOKUPSYMBOLINIMAGE_OPTION_RETURN_ON_ERROR) : NULL;
-    free(symbolName);
-    return symbol ? NSAddressOfSymbol(symbol) : NULL;
-}
-#endif /* __APPLE__ */
-
-#if defined(__sgi) || defined (__sun)
 #include <dlfcn.h>
-#include <stdio.h>
 
-static void* SunGetProcAddress (const GLubyte* name)
+static void* AppleGLGetProcAddress (const char *name)
 {
-    static void* h = NULL;
-    static void* gpa;
+    static void* image = NULL;
 
-    if (h == NULL)
-    {
-        if ((h = dlopen(NULL, RTLD_LAZY | RTLD_LOCAL)) == NULL) return NULL;
-        gpa = dlsym(h, "glXGetProcAddress");
-    }
+    if (NULL == image)
+        image = dlopen("/System/Library/Frameworks/OpenGL.framework/Versions/Current/OpenGL", RTLD_LAZY);
 
-    if (gpa != NULL)
-        return ((void*(*)(const GLubyte*))gpa)(name);
-    else
-        return dlsym(h, (const char*)name);
+    return (image ? dlsym(image, name) : NULL);
 }
-#endif /* __sgi || __sun */
+#define IntGetProcAddress(name) AppleGLGetProcAddress(name)
+#endif /* __APPLE__ */
 
 #if defined(_WIN32)
 
 #ifdef _MSC_VER
 #pragma warning(disable: 4055)
 #pragma warning(disable: 4054)
+#pragma warning(disable: 4996)
 #endif
-
-static int TestPointer(const PROC pTest)
-{
-    ptrdiff_t iTest;
-    if(!pTest) return 0;
-    iTest = (ptrdiff_t)pTest;
-
-    if(iTest == 1 || iTest == 2 || iTest == 3 || iTest == -1) return 0;
-
-    return 1;
-}
 
 static PROC WinGetProcAddress(const char *name)
 {
-    HMODULE glMod = NULL;
+    static HMODULE glMod = NULL;
     PROC pFunc = wglGetProcAddress((LPCSTR)name);
-    if(TestPointer(pFunc))
-    {
-        return pFunc;
-    }
-    glMod = GetModuleHandleA("OpenGL32.dll");
+
+    if (pFunc) return pFunc;
+
+    if (NULL == glMod)
+        glMod = GetModuleHandleA("OpenGL32.dll");
+
     return (PROC)GetProcAddress(glMod, (LPCSTR)name);
 }
 
 #define IntGetProcAddress(name) WinGetProcAddress(name)
-#else
-    #if defined(__APPLE__)
-        #define IntGetProcAddress(name) AppleGLGetProcAddress(name)
-    #else
-        #if defined(__sgi) || defined(__sun)
-            #define IntGetProcAddress(name) SunGetProcAddress(name)
-        #else /* GLX */
-            #include <GL/glx.h>
+#endif
 
-            #define IntGetProcAddress(name) (*glXGetProcAddressARB)((const GLubyte*)name)
-        #endif
-    #endif
+/* Linux, FreeBSD, other */
+#ifndef IntGetProcAddress
+    #include <GL/glx.h>
+
+    #define IntGetProcAddress(name) (*glXGetProcAddressARB)((const GLubyte*)name)
 #endif
 
 int sfogl_ext_SGIS_texture_edge_clamp = sfogl_LOAD_FAILED;
@@ -144,7 +98,7 @@ void (CODEGEN_FUNCPTR *sf_ptrc_glMultiTexCoord4ivARB)(GLenum, const GLint *) = N
 void (CODEGEN_FUNCPTR *sf_ptrc_glMultiTexCoord4sARB)(GLenum, GLshort, GLshort, GLshort, GLshort) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glMultiTexCoord4svARB)(GLenum, const GLshort *) = NULL;
 
-static int Load_ARB_multitexture()
+static int Load_ARB_multitexture(void)
 {
     int numFailed = 0;
     sf_ptrc_glActiveTextureARB = (void (CODEGEN_FUNCPTR *)(GLenum))IntGetProcAddress("glActiveTextureARB");
@@ -220,7 +174,7 @@ static int Load_ARB_multitexture()
 
 void (CODEGEN_FUNCPTR *sf_ptrc_glBlendEquationEXT)(GLenum) = NULL;
 
-static int Load_EXT_blend_minmax()
+static int Load_EXT_blend_minmax(void)
 {
     int numFailed = 0;
     sf_ptrc_glBlendEquationEXT = (void (CODEGEN_FUNCPTR *)(GLenum))IntGetProcAddress("glBlendEquationEXT");
@@ -230,7 +184,7 @@ static int Load_EXT_blend_minmax()
 
 void (CODEGEN_FUNCPTR *sf_ptrc_glBlendFuncSeparateEXT)(GLenum, GLenum, GLenum, GLenum) = NULL;
 
-static int Load_EXT_blend_func_separate()
+static int Load_EXT_blend_func_separate(void)
 {
     int numFailed = 0;
     sf_ptrc_glBlendFuncSeparateEXT = (void (CODEGEN_FUNCPTR *)(GLenum, GLenum, GLenum, GLenum))IntGetProcAddress("glBlendFuncSeparateEXT");
@@ -258,7 +212,7 @@ void (CODEGEN_FUNCPTR *sf_ptrc_glProgramLocalParameter4fARB)(GLenum, GLuint, GLf
 void (CODEGEN_FUNCPTR *sf_ptrc_glProgramLocalParameter4fvARB)(GLenum, GLuint, const GLfloat *) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glProgramStringARB)(GLenum, GLenum, GLsizei, const GLvoid *) = NULL;
 
-static int Load_ARB_fragment_program()
+static int Load_ARB_fragment_program(void)
 {
     int numFailed = 0;
     sf_ptrc_glBindProgramARB = (void (CODEGEN_FUNCPTR *)(GLenum, GLuint))IntGetProcAddress("glBindProgramARB");
@@ -304,7 +258,7 @@ static int Load_ARB_fragment_program()
 
 void (CODEGEN_FUNCPTR *sf_ptrc_glAttachObjectARB)(GLhandleARB, GLhandleARB) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glCompileShaderARB)(GLhandleARB) = NULL;
-GLhandleARB (CODEGEN_FUNCPTR *sf_ptrc_glCreateProgramObjectARB)() = NULL;
+GLhandleARB (CODEGEN_FUNCPTR *sf_ptrc_glCreateProgramObjectARB)(void) = NULL;
 GLhandleARB (CODEGEN_FUNCPTR *sf_ptrc_glCreateShaderObjectARB)(GLenum) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glDeleteObjectARB)(GLhandleARB) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glDetachObjectARB)(GLhandleARB, GLhandleARB) = NULL;
@@ -342,14 +296,14 @@ void (CODEGEN_FUNCPTR *sf_ptrc_glUniformMatrix4fvARB)(GLint, GLsizei, GLboolean,
 void (CODEGEN_FUNCPTR *sf_ptrc_glUseProgramObjectARB)(GLhandleARB) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glValidateProgramARB)(GLhandleARB) = NULL;
 
-static int Load_ARB_shader_objects()
+static int Load_ARB_shader_objects(void)
 {
     int numFailed = 0;
     sf_ptrc_glAttachObjectARB = (void (CODEGEN_FUNCPTR *)(GLhandleARB, GLhandleARB))IntGetProcAddress("glAttachObjectARB");
     if(!sf_ptrc_glAttachObjectARB) numFailed++;
     sf_ptrc_glCompileShaderARB = (void (CODEGEN_FUNCPTR *)(GLhandleARB))IntGetProcAddress("glCompileShaderARB");
     if(!sf_ptrc_glCompileShaderARB) numFailed++;
-    sf_ptrc_glCreateProgramObjectARB = (GLhandleARB (CODEGEN_FUNCPTR *)())IntGetProcAddress("glCreateProgramObjectARB");
+    sf_ptrc_glCreateProgramObjectARB = (GLhandleARB (CODEGEN_FUNCPTR *)(void))IntGetProcAddress("glCreateProgramObjectARB");
     if(!sf_ptrc_glCreateProgramObjectARB) numFailed++;
     sf_ptrc_glCreateShaderObjectARB = (GLhandleARB (CODEGEN_FUNCPTR *)(GLenum))IntGetProcAddress("glCreateShaderObjectARB");
     if(!sf_ptrc_glCreateShaderObjectARB) numFailed++;
@@ -430,7 +384,7 @@ void (CODEGEN_FUNCPTR *sf_ptrc_glBindAttribLocationARB)(GLhandleARB, GLuint, con
 void (CODEGEN_FUNCPTR *sf_ptrc_glGetActiveAttribARB)(GLhandleARB, GLuint, GLsizei, GLsizei *, GLint *, GLenum *, GLcharARB *) = NULL;
 GLint (CODEGEN_FUNCPTR *sf_ptrc_glGetAttribLocationARB)(GLhandleARB, const GLcharARB *) = NULL;
 
-static int Load_ARB_vertex_shader()
+static int Load_ARB_vertex_shader(void)
 {
     int numFailed = 0;
     sf_ptrc_glBindAttribLocationARB = (void (CODEGEN_FUNCPTR *)(GLhandleARB, GLuint, const GLcharARB *))IntGetProcAddress("glBindAttribLocationARB");
@@ -444,7 +398,7 @@ static int Load_ARB_vertex_shader()
 
 void (CODEGEN_FUNCPTR *sf_ptrc_glBlendEquationSeparateEXT)(GLenum, GLenum) = NULL;
 
-static int Load_EXT_blend_equation_separate()
+static int Load_EXT_blend_equation_separate(void)
 {
     int numFailed = 0;
     sf_ptrc_glBlendEquationSeparateEXT = (void (CODEGEN_FUNCPTR *)(GLenum, GLenum))IntGetProcAddress("glBlendEquationSeparateEXT");
@@ -470,7 +424,7 @@ GLboolean (CODEGEN_FUNCPTR *sf_ptrc_glIsFramebufferEXT)(GLuint) = NULL;
 GLboolean (CODEGEN_FUNCPTR *sf_ptrc_glIsRenderbufferEXT)(GLuint) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glRenderbufferStorageEXT)(GLenum, GLenum, GLsizei, GLsizei) = NULL;
 
-static int Load_EXT_framebuffer_object()
+static int Load_EXT_framebuffer_object(void)
 {
     int numFailed = 0;
     sf_ptrc_glBindFramebufferEXT = (void (CODEGEN_FUNCPTR *)(GLenum, GLuint))IntGetProcAddress("glBindFramebufferEXT");
@@ -570,8 +524,8 @@ void (CODEGEN_FUNCPTR *sf_ptrc_glDrawPixels)(GLsizei, GLsizei, GLenum, GLenum, c
 void (CODEGEN_FUNCPTR *sf_ptrc_glEdgeFlag)(GLboolean) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glEdgeFlagv)(const GLboolean *) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glEnable)(GLenum) = NULL;
-void (CODEGEN_FUNCPTR *sf_ptrc_glEnd)() = NULL;
-void (CODEGEN_FUNCPTR *sf_ptrc_glEndList)() = NULL;
+void (CODEGEN_FUNCPTR *sf_ptrc_glEnd)(void) = NULL;
+void (CODEGEN_FUNCPTR *sf_ptrc_glEndList)(void) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glEvalCoord1d)(GLdouble) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glEvalCoord1dv)(const GLdouble *) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glEvalCoord1f)(GLfloat) = NULL;
@@ -585,8 +539,8 @@ void (CODEGEN_FUNCPTR *sf_ptrc_glEvalMesh2)(GLenum, GLint, GLint, GLint, GLint) 
 void (CODEGEN_FUNCPTR *sf_ptrc_glEvalPoint1)(GLint) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glEvalPoint2)(GLint, GLint) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glFeedbackBuffer)(GLsizei, GLenum, GLfloat *) = NULL;
-void (CODEGEN_FUNCPTR *sf_ptrc_glFinish)() = NULL;
-void (CODEGEN_FUNCPTR *sf_ptrc_glFlush)() = NULL;
+void (CODEGEN_FUNCPTR *sf_ptrc_glFinish)(void) = NULL;
+void (CODEGEN_FUNCPTR *sf_ptrc_glFlush)(void) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glFogf)(GLenum, GLfloat) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glFogfv)(GLenum, const GLfloat *) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glFogi)(GLenum, GLint) = NULL;
@@ -597,7 +551,7 @@ GLuint (CODEGEN_FUNCPTR *sf_ptrc_glGenLists)(GLsizei) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glGetBooleanv)(GLenum, GLboolean *) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glGetClipPlane)(GLenum, GLdouble *) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glGetDoublev)(GLenum, GLdouble *) = NULL;
-GLenum (CODEGEN_FUNCPTR *sf_ptrc_glGetError)() = NULL;
+GLenum (CODEGEN_FUNCPTR *sf_ptrc_glGetError)(void) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glGetFloatv)(GLenum, GLfloat *) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glGetIntegerv)(GLenum, GLint *) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glGetLightfv)(GLenum, GLenum, GLfloat *) = NULL;
@@ -632,7 +586,7 @@ void (CODEGEN_FUNCPTR *sf_ptrc_glIndexi)(GLint) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glIndexiv)(const GLint *) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glIndexs)(GLshort) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glIndexsv)(const GLshort *) = NULL;
-void (CODEGEN_FUNCPTR *sf_ptrc_glInitNames)() = NULL;
+void (CODEGEN_FUNCPTR *sf_ptrc_glInitNames)(void) = NULL;
 GLboolean (CODEGEN_FUNCPTR *sf_ptrc_glIsEnabled)(GLenum) = NULL;
 GLboolean (CODEGEN_FUNCPTR *sf_ptrc_glIsList)(GLuint) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glLightModelf)(GLenum, GLfloat) = NULL;
@@ -646,7 +600,7 @@ void (CODEGEN_FUNCPTR *sf_ptrc_glLightiv)(GLenum, GLenum, const GLint *) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glLineStipple)(GLint, GLushort) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glLineWidth)(GLfloat) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glListBase)(GLuint) = NULL;
-void (CODEGEN_FUNCPTR *sf_ptrc_glLoadIdentity)() = NULL;
+void (CODEGEN_FUNCPTR *sf_ptrc_glLoadIdentity)(void) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glLoadMatrixd)(const GLdouble *) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glLoadMatrixf)(const GLfloat *) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glLoadName)(GLuint) = NULL;
@@ -690,11 +644,11 @@ void (CODEGEN_FUNCPTR *sf_ptrc_glPixelZoom)(GLfloat, GLfloat) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glPointSize)(GLfloat) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glPolygonMode)(GLenum, GLenum) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glPolygonStipple)(const GLubyte *) = NULL;
-void (CODEGEN_FUNCPTR *sf_ptrc_glPopAttrib)() = NULL;
-void (CODEGEN_FUNCPTR *sf_ptrc_glPopMatrix)() = NULL;
-void (CODEGEN_FUNCPTR *sf_ptrc_glPopName)() = NULL;
+void (CODEGEN_FUNCPTR *sf_ptrc_glPopAttrib)(void) = NULL;
+void (CODEGEN_FUNCPTR *sf_ptrc_glPopMatrix)(void) = NULL;
+void (CODEGEN_FUNCPTR *sf_ptrc_glPopName)(void) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glPushAttrib)(GLbitfield) = NULL;
-void (CODEGEN_FUNCPTR *sf_ptrc_glPushMatrix)() = NULL;
+void (CODEGEN_FUNCPTR *sf_ptrc_glPushMatrix)(void) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glPushName)(GLuint) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glRasterPos2d)(GLdouble, GLdouble) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glRasterPos2dv)(const GLdouble *) = NULL;
@@ -840,7 +794,7 @@ void (CODEGEN_FUNCPTR *sf_ptrc_glInterleavedArrays)(GLenum, GLsizei, const GLvoi
 GLboolean (CODEGEN_FUNCPTR *sf_ptrc_glIsTexture)(GLuint) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glNormalPointer)(GLenum, GLsizei, const GLvoid *) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glPolygonOffset)(GLfloat, GLfloat) = NULL;
-void (CODEGEN_FUNCPTR *sf_ptrc_glPopClientAttrib)() = NULL;
+void (CODEGEN_FUNCPTR *sf_ptrc_glPopClientAttrib)(void) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glPrioritizeTextures)(GLsizei, const GLuint *, const GLfloat *) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glPushClientAttrib)(GLbitfield) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glTexCoordPointer)(GLint, GLenum, GLsizei, const GLvoid *) = NULL;
@@ -848,7 +802,7 @@ void (CODEGEN_FUNCPTR *sf_ptrc_glTexSubImage1D)(GLenum, GLint, GLint, GLsizei, G
 void (CODEGEN_FUNCPTR *sf_ptrc_glTexSubImage2D)(GLenum, GLint, GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, const GLvoid *) = NULL;
 void (CODEGEN_FUNCPTR *sf_ptrc_glVertexPointer)(GLint, GLenum, GLsizei, const GLvoid *) = NULL;
 
-static int Load_Version_1_1()
+static int Load_Version_1_1(void)
 {
     int numFailed = 0;
     sf_ptrc_glAccum = (void (CODEGEN_FUNCPTR *)(GLenum, GLfloat))IntGetProcAddress("glAccum");
@@ -971,9 +925,9 @@ static int Load_Version_1_1()
     if(!sf_ptrc_glEdgeFlagv) numFailed++;
     sf_ptrc_glEnable = (void (CODEGEN_FUNCPTR *)(GLenum))IntGetProcAddress("glEnable");
     if(!sf_ptrc_glEnable) numFailed++;
-    sf_ptrc_glEnd = (void (CODEGEN_FUNCPTR *)())IntGetProcAddress("glEnd");
+    sf_ptrc_glEnd = (void (CODEGEN_FUNCPTR *)(void))IntGetProcAddress("glEnd");
     if(!sf_ptrc_glEnd) numFailed++;
-    sf_ptrc_glEndList = (void (CODEGEN_FUNCPTR *)())IntGetProcAddress("glEndList");
+    sf_ptrc_glEndList = (void (CODEGEN_FUNCPTR *)(void))IntGetProcAddress("glEndList");
     if(!sf_ptrc_glEndList) numFailed++;
     sf_ptrc_glEvalCoord1d = (void (CODEGEN_FUNCPTR *)(GLdouble))IntGetProcAddress("glEvalCoord1d");
     if(!sf_ptrc_glEvalCoord1d) numFailed++;
@@ -1001,9 +955,9 @@ static int Load_Version_1_1()
     if(!sf_ptrc_glEvalPoint2) numFailed++;
     sf_ptrc_glFeedbackBuffer = (void (CODEGEN_FUNCPTR *)(GLsizei, GLenum, GLfloat *))IntGetProcAddress("glFeedbackBuffer");
     if(!sf_ptrc_glFeedbackBuffer) numFailed++;
-    sf_ptrc_glFinish = (void (CODEGEN_FUNCPTR *)())IntGetProcAddress("glFinish");
+    sf_ptrc_glFinish = (void (CODEGEN_FUNCPTR *)(void))IntGetProcAddress("glFinish");
     if(!sf_ptrc_glFinish) numFailed++;
-    sf_ptrc_glFlush = (void (CODEGEN_FUNCPTR *)())IntGetProcAddress("glFlush");
+    sf_ptrc_glFlush = (void (CODEGEN_FUNCPTR *)(void))IntGetProcAddress("glFlush");
     if(!sf_ptrc_glFlush) numFailed++;
     sf_ptrc_glFogf = (void (CODEGEN_FUNCPTR *)(GLenum, GLfloat))IntGetProcAddress("glFogf");
     if(!sf_ptrc_glFogf) numFailed++;
@@ -1025,7 +979,7 @@ static int Load_Version_1_1()
     if(!sf_ptrc_glGetClipPlane) numFailed++;
     sf_ptrc_glGetDoublev = (void (CODEGEN_FUNCPTR *)(GLenum, GLdouble *))IntGetProcAddress("glGetDoublev");
     if(!sf_ptrc_glGetDoublev) numFailed++;
-    sf_ptrc_glGetError = (GLenum (CODEGEN_FUNCPTR *)())IntGetProcAddress("glGetError");
+    sf_ptrc_glGetError = (GLenum (CODEGEN_FUNCPTR *)(void))IntGetProcAddress("glGetError");
     if(!sf_ptrc_glGetError) numFailed++;
     sf_ptrc_glGetFloatv = (void (CODEGEN_FUNCPTR *)(GLenum, GLfloat *))IntGetProcAddress("glGetFloatv");
     if(!sf_ptrc_glGetFloatv) numFailed++;
@@ -1095,7 +1049,7 @@ static int Load_Version_1_1()
     if(!sf_ptrc_glIndexs) numFailed++;
     sf_ptrc_glIndexsv = (void (CODEGEN_FUNCPTR *)(const GLshort *))IntGetProcAddress("glIndexsv");
     if(!sf_ptrc_glIndexsv) numFailed++;
-    sf_ptrc_glInitNames = (void (CODEGEN_FUNCPTR *)())IntGetProcAddress("glInitNames");
+    sf_ptrc_glInitNames = (void (CODEGEN_FUNCPTR *)(void))IntGetProcAddress("glInitNames");
     if(!sf_ptrc_glInitNames) numFailed++;
     sf_ptrc_glIsEnabled = (GLboolean (CODEGEN_FUNCPTR *)(GLenum))IntGetProcAddress("glIsEnabled");
     if(!sf_ptrc_glIsEnabled) numFailed++;
@@ -1123,7 +1077,7 @@ static int Load_Version_1_1()
     if(!sf_ptrc_glLineWidth) numFailed++;
     sf_ptrc_glListBase = (void (CODEGEN_FUNCPTR *)(GLuint))IntGetProcAddress("glListBase");
     if(!sf_ptrc_glListBase) numFailed++;
-    sf_ptrc_glLoadIdentity = (void (CODEGEN_FUNCPTR *)())IntGetProcAddress("glLoadIdentity");
+    sf_ptrc_glLoadIdentity = (void (CODEGEN_FUNCPTR *)(void))IntGetProcAddress("glLoadIdentity");
     if(!sf_ptrc_glLoadIdentity) numFailed++;
     sf_ptrc_glLoadMatrixd = (void (CODEGEN_FUNCPTR *)(const GLdouble *))IntGetProcAddress("glLoadMatrixd");
     if(!sf_ptrc_glLoadMatrixd) numFailed++;
@@ -1211,15 +1165,15 @@ static int Load_Version_1_1()
     if(!sf_ptrc_glPolygonMode) numFailed++;
     sf_ptrc_glPolygonStipple = (void (CODEGEN_FUNCPTR *)(const GLubyte *))IntGetProcAddress("glPolygonStipple");
     if(!sf_ptrc_glPolygonStipple) numFailed++;
-    sf_ptrc_glPopAttrib = (void (CODEGEN_FUNCPTR *)())IntGetProcAddress("glPopAttrib");
+    sf_ptrc_glPopAttrib = (void (CODEGEN_FUNCPTR *)(void))IntGetProcAddress("glPopAttrib");
     if(!sf_ptrc_glPopAttrib) numFailed++;
-    sf_ptrc_glPopMatrix = (void (CODEGEN_FUNCPTR *)())IntGetProcAddress("glPopMatrix");
+    sf_ptrc_glPopMatrix = (void (CODEGEN_FUNCPTR *)(void))IntGetProcAddress("glPopMatrix");
     if(!sf_ptrc_glPopMatrix) numFailed++;
-    sf_ptrc_glPopName = (void (CODEGEN_FUNCPTR *)())IntGetProcAddress("glPopName");
+    sf_ptrc_glPopName = (void (CODEGEN_FUNCPTR *)(void))IntGetProcAddress("glPopName");
     if(!sf_ptrc_glPopName) numFailed++;
     sf_ptrc_glPushAttrib = (void (CODEGEN_FUNCPTR *)(GLbitfield))IntGetProcAddress("glPushAttrib");
     if(!sf_ptrc_glPushAttrib) numFailed++;
-    sf_ptrc_glPushMatrix = (void (CODEGEN_FUNCPTR *)())IntGetProcAddress("glPushMatrix");
+    sf_ptrc_glPushMatrix = (void (CODEGEN_FUNCPTR *)(void))IntGetProcAddress("glPushMatrix");
     if(!sf_ptrc_glPushMatrix) numFailed++;
     sf_ptrc_glPushName = (void (CODEGEN_FUNCPTR *)(GLuint))IntGetProcAddress("glPushName");
     if(!sf_ptrc_glPushName) numFailed++;
@@ -1509,7 +1463,7 @@ static int Load_Version_1_1()
     if(!sf_ptrc_glNormalPointer) numFailed++;
     sf_ptrc_glPolygonOffset = (void (CODEGEN_FUNCPTR *)(GLfloat, GLfloat))IntGetProcAddress("glPolygonOffset");
     if(!sf_ptrc_glPolygonOffset) numFailed++;
-    sf_ptrc_glPopClientAttrib = (void (CODEGEN_FUNCPTR *)())IntGetProcAddress("glPopClientAttrib");
+    sf_ptrc_glPopClientAttrib = (void (CODEGEN_FUNCPTR *)(void))IntGetProcAddress("glPopClientAttrib");
     if(!sf_ptrc_glPopClientAttrib) numFailed++;
     sf_ptrc_glPrioritizeTextures = (void (CODEGEN_FUNCPTR *)(GLsizei, const GLuint *, const GLfloat *))IntGetProcAddress("glPrioritizeTextures");
     if(!sf_ptrc_glPrioritizeTextures) numFailed++;
@@ -1526,7 +1480,7 @@ static int Load_Version_1_1()
     return numFailed;
 }
 
-typedef int (*PFN_LOADFUNCPOINTERS)();
+typedef int (*PFN_LOADFUNCPOINTERS)(void);
 typedef struct sfogl_StrToExtMap_s
 {
     const char *extensionName;
@@ -1565,7 +1519,7 @@ static sfogl_StrToExtMap *FindExtEntry(const char *extensionName)
     return NULL;
 }
 
-static void ClearExtensionVars()
+static void ClearExtensionVars(void)
 {
     sfogl_ext_SGIS_texture_edge_clamp = sfogl_LOAD_FAILED;
     sfogl_ext_ARB_multitexture = sfogl_LOAD_FAILED;
@@ -1643,7 +1597,7 @@ static void ProcExtsFromExtString(const char *strExtList)
     }
 }
 
-int sfogl_LoadFunctions()
+int sfogl_LoadFunctions(void)
 {
     int numFailed = 0;
     ClearExtensionVars();
@@ -1698,21 +1652,21 @@ static void ParseVersionFromString(int *pOutMajor, int *pOutMinor, const char *s
     *pOutMinor = atoi(strWorkBuff);
 }
 
-static void GetGLVersion()
+static void GetGLVersion(void)
 {
     ParseVersionFromString(&g_major_version, &g_minor_version, (const char*)glGetString(GL_VERSION));
 }
 
-int sfogl_GetMajorVersion()
+int sfogl_GetMajorVersion(void)
 {
     if(g_major_version == 0)
         GetGLVersion();
     return g_major_version;
 }
 
-int sfogl_GetMinorVersion()
+int sfogl_GetMinorVersion(void)
 {
-    if(g_major_version == 0) //Yes, check the major version to get the minor one.
+    if(g_major_version == 0) /* Yes, check the major version to get the minor one. */
         GetGLVersion();
     return g_minor_version;
 }
@@ -1722,9 +1676,9 @@ int sfogl_IsVersionGEQ(int majorVersion, int minorVersion)
     if(g_major_version == 0)
         GetGLVersion();
 
-    if(majorVersion > g_major_version) return 1;
-    if(majorVersion < g_major_version) return 0;
-    if(minorVersion >= g_minor_version) return 1;
+    if(majorVersion > g_major_version) return 0;
+    if(majorVersion < g_major_version) return 1;
+    if(g_minor_version >= minorVersion) return 1;
     return 0;
 }
 

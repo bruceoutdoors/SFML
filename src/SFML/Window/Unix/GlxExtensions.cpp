@@ -14,7 +14,7 @@ int sfglx_ext_ARB_create_context_profile = sfglx_LOAD_FAILED;
 
 void (CODEGEN_FUNCPTR *sf_ptrc_glXSwapIntervalEXT)(Display *, GLXDrawable, int) = NULL;
 
-static int Load_EXT_swap_control()
+static int Load_EXT_swap_control(void)
 {
     int numFailed = 0;
     sf_ptrc_glXSwapIntervalEXT = (void (CODEGEN_FUNCPTR *)(Display *, GLXDrawable, int))IntGetProcAddress("glXSwapIntervalEXT");
@@ -24,7 +24,7 @@ static int Load_EXT_swap_control()
 
 GLXContext (CODEGEN_FUNCPTR *sf_ptrc_glXCreateContextAttribsARB)(Display *, GLXFBConfig, GLXContext, Bool, const int *) = NULL;
 
-static int Load_ARB_create_context()
+static int Load_ARB_create_context(void)
 {
     int numFailed = 0;
     sf_ptrc_glXCreateContextAttribsARB = (GLXContext (CODEGEN_FUNCPTR *)(Display *, GLXFBConfig, GLXContext, Bool, const int *))IntGetProcAddress("glXCreateContextAttribsARB");
@@ -32,7 +32,7 @@ static int Load_ARB_create_context()
     return numFailed;
 }
 
-typedef int (*PFN_LOADFUNCPOINTERS)();
+typedef int (*PFN_LOADFUNCPOINTERS)(void);
 typedef struct sfglx_StrToExtMap_s
 {
     const char *extensionName;
@@ -58,11 +58,11 @@ static sfglx_StrToExtMap *FindExtEntry(const char *extensionName)
         if(strcmp(extensionName, currLoc->extensionName) == 0)
             return currLoc;
     }
-    
+
     return NULL;
 }
 
-static void ClearExtensionVars()
+static void ClearExtensionVars(void)
 {
     sfglx_ext_EXT_swap_control = sfglx_LOAD_FAILED;
     sfglx_ext_ARB_multisample = sfglx_LOAD_FAILED;
@@ -134,8 +134,8 @@ static void ProcExtsFromExtString(const char *strExtList)
 int sfglx_LoadFunctions(Display *display, int screen)
 {
     ClearExtensionVars();
-    
-    
+
+
     ProcExtsFromExtString((const char *)glXQueryExtensionsString(display, screen));
     return sfglx_LOAD_SUCCEEDED;
 }
