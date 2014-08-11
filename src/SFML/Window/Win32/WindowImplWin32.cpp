@@ -308,7 +308,30 @@ void WindowImplWin32::setKeyRepeatEnabled(bool enabled)
 ////////////////////////////////////////////////////////////
 void WindowImplWin32::requestFocus()
 {
-    SetForegroundWindow(m_handle);
+    // Allow focus stealing only within same process
+    DWORD thisPid = GetWindowThreadProcessId(m_handle, NULL);
+
+    HWND foregroundWindow = GetForegroundWindow();
+    DWORD foregroundPid = GetWindowThreadProcessId(foregroundWindow, NULL);
+     
+    // The window requesting focus belongs to the same process as the current window: allow stealing
+    if (thisPid == foregroundPid)
+    {
+        SetForegroundWindow(m_handle);
+    }
+
+    // Different process: don't steal focus, but create a taskbar notification ("flash")
+    else
+    {
+        FLASHWINFO info;
+        info.cbSize = sizeof(info);
+        info.hwnd = m_handle;
+        info.dwFlags = FLASHW_TRAY;
+        info.dwTimeout = 0;
+        info.uCount = 3;
+
+        FlashWindowEx(&info);
+    }
 }
 
 
