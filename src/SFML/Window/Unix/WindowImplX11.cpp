@@ -40,6 +40,7 @@
 #include <vector>
 #include <string>
 #include <iterator>
+#include <algorithm>
 
 #ifdef SFML_OPENGL_ES
     #include <SFML/Window/EglContext.hpp>
@@ -54,10 +55,11 @@
 ////////////////////////////////////////////////////////////
 namespace
 {
-    sf::priv::WindowImplX11* fullscreenWindow = NULL;
-    unsigned long            eventMask        = FocusChangeMask | ButtonPressMask | ButtonReleaseMask | ButtonMotionMask |
-                                                PointerMotionMask | KeyPressMask | KeyReleaseMask | StructureNotifyMask |
-                                                EnterWindowMask | LeaveWindowMask;
+    sf::priv::WindowImplX11*              fullscreenWindow = NULL;
+    std::vector<sf::priv::WindowImplX11*> allWindows;
+    unsigned long                         eventMask        = FocusChangeMask | ButtonPressMask | ButtonReleaseMask | ButtonMotionMask |
+                                                             PointerMotionMask | KeyPressMask | KeyReleaseMask | StructureNotifyMask |
+                                                             EnterWindowMask | LeaveWindowMask;
 
     // Filter the events received by windows (only allow those matching a specific window)
     Bool checkEvent(::Display*, XEvent* event, XPointer userData)
@@ -303,6 +305,9 @@ WindowImplX11::~WindowImplX11()
 
     // Close the connection with the X server
     CloseDisplay(m_display);
+
+    // Remove this window from the global list of windows (required for focus request)
+    allWindows.erase(std::remove(allWindows.begin(), allWindows.end(), this), allWindows.end());
 }
 
 
@@ -486,15 +491,47 @@ void WindowImplX11::setKeyRepeatEnabled(bool enabled)
 ////////////////////////////////////////////////////////////
 void WindowImplX11::requestFocus()
 {
-    // Ensure WM hints exist
-    XWMHints* hints = XGetWMHints(m_display, m_window);
-    if (hints == NULL)
+    // Focus is only stolen among SFML windows, not between applications
+    // Check the global list of windows to find out whether an SFML window has the focus
+    bool sfmlWindowFocused = false;
+    for (std::vector<WindowImplX11*>::iterator itr = allWindows.begin(); itr != allWindows.end(); ++itr)
     {
-        hints = XAllocWMHints();
+        if ((*itr)->hasFocus())
+        {
+            sfmlWindowFocused = true;
+            break;
+        }
     }
+    
+    // Check if window is viewable (not on other desktop, ...)
+    // TODO: Check also if minimized
+    XWindowAttributes attributes;
+    if (XGetWindowAttributes(m_display, m_window, &attributes) == 0)
+    {
+        sf::err() << "Failed to check if window is viewable while requesting focus" << std::endl;    
+        return; // error getting attribute
+    }
+
+    bool windowViewable = (attributes.map_state == IsViewable);
+    sf::err() << "s=" << sfmlWindowFocused << " v=" << windowViewable << std::endl;
+    
+    // If another SFML window of this application has the focus and the current window is viewable, steal focus
+    if (sfmlWindowFocused && windowViewable)
+    {
+        // Bring window to the front and give it input focus
+        XRaiseWindow(m_display, m_window);
+        XSetInputFocus(m_display, m_window, RevertToPointerRoot, CurrentTime);
+    }
+    
+    // Otherwise, create visual notification
     else
     {
-        // Add Urgency Hint flag (visual notification)
+        // Ensure WM hints exist, allocate if necessary
+        XWMHints* hints = XGetWMHints(m_display, m_window);
+        if (hints == NULL)
+            hints = XAllocWMHints();
+        
+        // Add urgency (notification) flag to hints
         hints->flags |= XUrgencyHint;
         XSetWMHints(m_display, m_window, hints);
         XFree(hints);
@@ -598,6 +635,9 @@ void WindowImplX11::initialize()
 
     // Flush the commands queue
     XFlush(m_display);
+    
+    // Add this window to the global list of windows (required for focus request)
+    allWindows.push_back(this);
 }
 
 
