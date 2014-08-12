@@ -750,6 +750,17 @@ bool WindowImplX11::processEvent(XEvent windowEvent)
             Event event;
             event.type = Event::GainedFocus;
             pushEvent(event);
+
+            // If the window has been previously marked urgent (notification) as a result of a focus request, undo that
+            // Ensure WM hints exist, allocate if necessary
+            XWMHints* hints = XGetWMHints(m_display, m_window);
+            if (hints != NULL)
+            {
+                // Remove urgency (notification) flag from hints
+                hints->flags &= ~XUrgencyHint;
+                XSetWMHints(m_display, m_window, hints);
+                XFree(hints);
+            }
             break;
         }
 
